@@ -27,44 +27,13 @@ export default function BillDetail({ params }: { params: { id: string } }) {
     }
   }, [params.id]);
 
-  // Fetch chat history
-  const fetchChatHistory = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/chat/history?billId=${params.id}`);
-      if (!response.ok) throw new Error('Failed to fetch chat history');
-      
-      const data = await response.json();
-      setChatHistory(data.chatHistory);
-    } catch (error) {
-      console.error('Error fetching chat history:', error);
-      setChatHistory([]);
-    }
-  }, [params.id]);
-
   // Send message to chat API (non-streaming fallback)
   const sendMessage = async (message: string, streamedResponse?: string) => {
     setIsLoading(true);
     
     try {
-      // If we have a streamed response, save it to the database
+      // If we have a streamed response, add it directly to the chat history
       if (streamedResponse) {
-        // Save the streamed response to the database
-        const saveResponse = await fetch('/api/chat/save', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            billId: params.id,
-            message,
-            response: streamedResponse
-          }),
-        });
-        
-        if (!saveResponse.ok) {
-          console.error('Failed to save streamed response');
-        }
-        
         // Add new message with the streamed response to chat history
         setChatHistory((prev) => [
           ...prev,
@@ -111,11 +80,10 @@ export default function BillDetail({ params }: { params: { id: string } }) {
     }
   };
 
-  // Load bill data and chat history
+  // Load bill data only
   useEffect(() => {
     fetchBill();
-    fetchChatHistory();
-  }, [fetchBill, fetchChatHistory]);
+  }, [fetchBill]);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">

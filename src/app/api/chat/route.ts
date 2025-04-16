@@ -34,18 +34,10 @@ export async function POST(request: NextRequest) {
     const modelResponse = `This is a simulated response about the document "${pdfFilename}" with title: ${bill.title}. 
     In a real application, this would be a response from your model API about the bill content.`;
 
-    // Store the message and response
-    const chatMessage = await prisma.chatMessage.create({
-      data: {
-        message,
-        response: modelResponse,
-        billId,
-      },
-    });
-
+    // Return the response without saving to database
     return NextResponse.json({ 
-      message: chatMessage.message, 
-      response: chatMessage.response 
+      message: message, 
+      response: modelResponse 
     });
   } catch (error) {
     console.error('Error processing chat:', error);

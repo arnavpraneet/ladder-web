@@ -118,14 +118,13 @@ export default function ChatInterface({
           if (accumulatedResponse) {
             // Set streaming to false before calling onSendMessage to prevent any race conditions
             setIsStreaming(false);
-            // Pass both message and accumulated response
+            // Pass both message and accumulated response to parent for in-memory storage
             onSendMessage(userMessage, accumulatedResponse);
             // Clear streaming messages to prevent duplication
             setStreamingMessages([]);
           } else {
             setIsStreaming(false);
             // Use a fallback response if streaming didn't produce any content
-            // But we create and display it here instead of using the simulated response
             const fallbackResponse = "Sorry, I couldn't generate a response. Please try again.";
             setCurrentStreamedResponse(fallbackResponse);
             onSendMessage(userMessage, fallbackResponse);
@@ -141,7 +140,7 @@ export default function ChatInterface({
       const errorResponse = "Sorry, I encountered an error while processing your request. Please try again.";
       setCurrentStreamedResponse(errorResponse);
       setIsStreaming(false);
-      // Pass both the message and error response instead of falling back to the API
+      // Pass both the message and error response
       onSendMessage(userMessage, errorResponse);
       setStreamingMessages([]);
     }
