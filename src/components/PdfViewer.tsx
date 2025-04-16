@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface PdfViewerProps {
@@ -20,7 +20,9 @@ export default function PdfViewer({ pdfUrl }: PdfViewerProps) {
     try {
       // Set full URL path for the PDF
       const origin = window.location.origin;
-      const url = pdfUrl.startsWith('http') ? pdfUrl : `${origin}${pdfUrl}`;
+      // Ensure the URL is properly encoded
+      const encodedPath = pdfUrl.split('/').map(part => encodeURIComponent(part)).join('/');
+      const url = pdfUrl.startsWith('http') ? pdfUrl : `${origin}${encodedPath}`;
       console.log('PDF URL to be loaded:', url);
       setFullPdfUrl(url);
       setIsClient(true);
@@ -81,7 +83,7 @@ export default function PdfViewer({ pdfUrl }: PdfViewerProps) {
           asChild
           className="h-8"
         >
-          <a href={pdfUrl} download>
+          <a href={fullPdfUrl} download>
             <Download size={16} className="mr-1" />
             Download
           </a>
@@ -90,12 +92,26 @@ export default function PdfViewer({ pdfUrl }: PdfViewerProps) {
       
       <div className="flex-1 overflow-hidden bg-muted/10">
         {fullPdfUrl && (
-          <iframe
-            src={fullPdfUrl}
-            className="w-full h-full border-0"
-            title="PDF Viewer"
-            onError={() => setLoadError(new Error("Failed to load PDF in iframe"))}
-          />
+          <object
+            data={fullPdfUrl}
+            type="application/pdf"
+            className="w-full h-full"
+          >
+            <div className="flex items-center justify-center h-full">
+              <p className="text-muted-foreground">
+                Unable to display PDF. Please{' '}
+                <a 
+                  href={fullPdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  download
+                </a>{' '}
+                to view it.
+              </p>
+            </div>
+          </object>
         )}
       </div>
     </div>
