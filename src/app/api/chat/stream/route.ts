@@ -1,4 +1,6 @@
 import { NextRequest } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import path from 'path';
 
 // Use environment variables for credentials - only need endpoint and API key
 const AGENT_KEY = process.env.DIGITALOCEAN_AGENT_KEY || "";
@@ -10,6 +12,18 @@ export async function POST(request: NextRequest) {
   const { message, billId } = body;
 
   try {
+    // Fetch the bill title from the database to include in the context
+    const bill = await prisma.bill.findUnique({
+      where: { id: billId },
+    });
+
+    if (!bill) {
+      throw new Error('Bill not found');
+    }
+
+    // Extract the PDF filename from the pdfUrl
+    const pdfFilename = path.basename(bill.pdfUrl);
+
     // Create a streaming response
     const encoder = new TextEncoder();
     const stream = new TransformStream();
@@ -27,6 +41,9 @@ export async function POST(request: NextRequest) {
     // Make the request to GenAI in the background
     (async () => {
       try {
+        // Create a more specific prompt that includes the bill title and PDF filename
+        const enhancedMessage = `Regarding the document "${pdfFilename}" with title "${bill.title}": ${message}`;
+
         const genAIResponse = await fetch(`${AGENT_ENDPOINT}/api/v1/chat/completions`, {
           method: 'POST',
           headers: {
@@ -37,12 +54,14 @@ export async function POST(request: NextRequest) {
             messages: [
               {
                 role: "user",
-                content: message
+                content: enhancedMessage
               }
             ],
             stream: true,
             context: {
               bill_id: billId,
+              bill_title: bill.title,
+              pdf_filename: pdfFilename,
               // You can add more context here if needed
             }
           }),

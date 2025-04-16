@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
+import path from 'path';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,9 +26,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Extract the PDF filename from the pdfUrl
+    const pdfFilename = path.basename(bill.pdfUrl);
+
     // In a real application, you would call your model API here
     // For now, we'll simulate a response
-    const modelResponse = `This is a simulated response about the bill: ${bill.title}. 
+    const modelResponse = `This is a simulated response about the document "${pdfFilename}" with title: ${bill.title}. 
     In a real application, this would be a response from your model API about the bill content.`;
 
     // Store the message and response
