@@ -6,8 +6,8 @@ export async function GET(
   context: { params: { id: string } }
 ) {
   try {
-    // Await the params object before accessing properties
-    const { id } = await context.params;
+    // Access id directly from context.params
+    const { id } = context.params;
     
     const bill = await prisma.bill.findUnique({
       where: { id },
