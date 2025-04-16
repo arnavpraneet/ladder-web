@@ -3,11 +3,14 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    // Await the params object before accessing properties
+    const { id } = await context.params;
+    
     const bill = await prisma.bill.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!bill) {

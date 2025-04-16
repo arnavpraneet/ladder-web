@@ -1,4 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
+const fs = require('fs');
+const path = require('path');
 
 const prisma = new PrismaClient();
 
@@ -12,32 +14,40 @@ async function main() {
     console.log('Deleting existing bills...');
     await prisma.bill.deleteMany();
     
-    console.log('All existing bills and chat messages have been deleted.');
-
-    // Step 3: Add your custom bills here
-    // Example: Replace this array with your own bills and PDFs
-    const myBills = [
-      {
-        title: 'THE PROTECTION OF INTERESTS IN AIRCRAFT OBJECTS BILL, 2025',
-        publicationDate: new Date(),
-        pdfUrl: '/pdfs/Protection_of_Interests_in_Aircraft_Objects_Bill_2025.pdf', // Make sure this file exists in public/pdfs/
-      },
-      
-      // Add more bills as needed
-    ];
+    // Get all PDF files from the public/pdfs directory
+    const pdfDir = path.join(process.cwd(), 'public', 'pdfs');
+    const pdfFiles = fs.readdirSync(pdfDir).filter(file => file.endsWith('.pdf'));
     
-    // Step 4: Insert new bills
-    console.log('Creating new bills...');
-    for (const bill of myBills) {
+    console.log(`Found ${pdfFiles.length} PDF files in public/pdfs directory`);
+    
+    // Create bills for each PDF file
+    const bills = pdfFiles.map(file => {
+      // Convert the filename to a readable title
+      const title = file
+        .replace(/\.pdf$/, '')
+        .replace(/_/g, ' ')
+        .replace(/,/g, ',')
+        .replace(/ {2,}/g, ' ');
+      
+      return {
+        title: title,
+        publicationDate: new Date(),
+        pdfUrl: `/pdfs/${file}`,
+      };
+    });
+    
+    console.log('Creating bills in the database...');
+    for (const bill of bills) {
       await prisma.bill.create({
         data: bill,
       });
       console.log(`Created bill: ${bill.title}`);
     }
     
-    console.log('Database has been successfully updated with your custom bills.');
+    console.log('Database has been reset with actual PDF files');
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error resetting database:', error);
+    process.exit(1);
   } finally {
     await prisma.$disconnect();
   }

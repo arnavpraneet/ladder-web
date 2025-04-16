@@ -1,89 +1,20 @@
-'use client';
-
-import { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import PdfViewer from '@/components/PdfViewer';
-import ChatInterface from '@/components/ChatInterface';
-import { Bill, ChatMessage } from '@/types/types';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, FileText } from 'lucide-react';
+import { prisma } from '@/lib/prisma';
+import ClientBillDetails from '@/components/ClientBillDetails';
 
-export default function BillDetail({ params }: { params: { id: string } }) {
-  const [bill, setBill] = useState<Bill | null>(null);
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Fetch bill details
-  const fetchBill = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/bills/${params.id}`);
-      if (!response.ok) throw new Error('Failed to fetch bill');
-      
-      const data = await response.json();
-      setBill(data.bill);
-    } catch (error) {
-      console.error('Error fetching bill:', error);
-    }
-  }, [params.id]);
-
-  // Send message to chat API (non-streaming fallback)
-  const sendMessage = async (message: string, streamedResponse?: string) => {
-    setIsLoading(true);
-    
-    try {
-      // If we have a streamed response, add it directly to the chat history
-      if (streamedResponse) {
-        // Add new message with the streamed response to chat history
-        setChatHistory((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            message,
-            response: streamedResponse,
-            createdAt: new Date(),
-          },
-        ]);
-        return;
-      }
-      
-      // Otherwise, fetch response from the API (non-streaming fallback)
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          billId: params.id,
-          message,
-        }),
-      });
-      
-      if (!response.ok) throw new Error('Failed to send message');
-      
-      const data = await response.json();
-      
-      // Add new message to chat history
-      setChatHistory((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          message,
-          response: data.response,
-          createdAt: new Date(),
-        },
-      ]);
-    } catch (error) {
-      console.error('Error sending message:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Load bill data only
-  useEffect(() => {
-    fetchBill();
-  }, [fetchBill]);
+export default async function BillDetail({ params }: { params: { id: string } }) {
+  // Await the params
+  const { id } = await params;
+  
+  // Fetch bill server-side
+  const bill = await prisma.bill.findUnique({
+    where: { id },
+  });
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
@@ -126,12 +57,7 @@ export default function BillDetail({ params }: { params: { id: string } }) {
         
         {/* Chat Interface (Right half) */}
         <div className="w-1/2 h-full">
-          <ChatInterface
-            billId={params.id}
-            chatHistory={chatHistory}
-            onSendMessage={sendMessage}
-            isLoading={isLoading}
-          />
+          <ClientBillDetails billId={id} bill={bill} />
         </div>
       </div>
     </div>
