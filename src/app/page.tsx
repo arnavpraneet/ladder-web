@@ -45,15 +45,15 @@ export default function Home() {
   }, [fetchBills]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-y-auto">
       <header className="bg-white border-b sticky top-0 z-10">
         <div className="container mx-auto py-4">
           <h1 className="text-3xl font-bold text-primary">Ladder</h1>
-          <p className="text-muted-foreground">Browse and chat about government bills</p>
+          <p className="text-muted-foreground">Legislative Assistant for Democratic Dialogue, Empowerment, and Reform</p>
         </div>
       </header>
       
-      <main className="container mx-auto py-6">
+      <main className="container mx-auto py-6 pb-12">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold">Available Bills</h2>
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -97,7 +97,7 @@ export default function Home() {
         
         <Separator className="mb-4" />
         
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <Button
             variant="outline"
             size="sm"
