@@ -4,6 +4,60 @@ const path = require('path');
 
 const prisma = new PrismaClient();
 
+/**
+ * Cleans up a bill title from a filename.
+ */
+function cleanBillTitle(filename) {
+  // Remove the .pdf extension
+  let title = filename.replace('.pdf', '');
+
+  // Clean up the title
+  title = title
+    .replace(/_/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .replace('As passed by LS', '')
+    .replace('as passed by LS', '')
+    .replace('As introduced in LS', '')
+    .replace('as introduced in LS', '')
+    .replace('Bill Text', '')
+    .replace('bill text', '')
+    .replace('Bill,', 'Bill')
+    .replace('Bill_', 'Bill ')
+    .trim();
+
+  // Ensure the title ends with a year
+  if (!/\b(20\d{2})\b/.test(title)) {
+    if (title.includes('2024')) {
+      title = title.replace(/2024/, '2024');
+    } else if (title.includes('2025')) {
+      title = title.replace(/2025/, '2025');
+    } else {
+      title += ' 2024';
+    }
+  }
+
+  return title;
+}
+
+/**
+ * Process a bill and add it to the database
+ */
+async function processBill(bill) {
+  console.log(`Creating bill: ${bill.title} (URL: "${bill.pdfUrl}")`);
+  
+  // Ensure the PDF URL has properly encoded spaces
+  bill.pdfUrl = bill.pdfUrl.replace(/ /g, '%20');
+  
+  return prisma.bill.create({
+    data: {
+      title: bill.title,
+      pdfUrl: bill.pdfUrl,
+      category: bill.category || 'Uncategorized',
+      status: 'active',
+    },
+  });
+}
+
 async function main() {
   try {
     // Step 1: Delete all existing chat messages (due to foreign key constraints)
@@ -22,12 +76,7 @@ async function main() {
     
     // Create bills for each PDF file
     const bills = pdfFiles.map(file => {
-      // Convert the filename to a readable title
-      const title = file
-        .replace(/\.pdf$/, '')
-        .replace(/_/g, ' ')
-        .replace(/,/g, ',')
-        .replace(/ {2,}/g, ' ');
+      const title = cleanBillTitle(file);
       
       return {
         title: title,
@@ -38,10 +87,7 @@ async function main() {
     
     console.log('Creating bills in the database...');
     for (const bill of bills) {
-      await prisma.bill.create({
-        data: bill,
-      });
-      console.log(`Created bill: ${bill.title}`);
+      await processBill(bill);
     }
     
     console.log('Database has been reset with actual PDF files');
