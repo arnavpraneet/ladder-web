@@ -85,7 +85,52 @@ module.exports = {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
       },
+      typography: {
+        DEFAULT: {
+          css: {
+            maxWidth: '100%',
+            color: 'hsl(var(--foreground))',
+            a: {
+              color: 'hsl(var(--primary))',
+              '&:hover': {
+                color: 'hsl(var(--primary) / 0.8)',
+              },
+            },
+            code: {
+              color: 'hsl(var(--foreground))',
+              backgroundColor: 'hsl(var(--muted) / 0.3)',
+              borderRadius: '0.25rem',
+              padding: '0.1rem 0.3rem',
+            },
+            'code::before': {
+              content: '""',
+            },
+            'code::after': {
+              content: '""',
+            },
+            hr: {
+              borderColor: 'hsl(var(--border))',
+            },
+            'h1, h2, h3, h4, h5, h6': {
+              color: 'hsl(var(--foreground))',
+            },
+            'ul > li::marker': {
+              color: 'hsl(var(--primary))',
+            },
+            'ol > li::marker': {
+              color: 'hsl(var(--primary))',
+            },
+            blockquote: {
+              borderLeftColor: 'hsl(var(--primary) / 0.3)',
+              backgroundColor: 'hsl(var(--muted) / 0.2)',
+            },
+          },
+        },
+      },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    require('@tailwindcss/typography'),
+  ],
 }; 

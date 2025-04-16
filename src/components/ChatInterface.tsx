@@ -3,6 +3,7 @@ import type { ChatMessage } from '@/types/types';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { SendHorizontal, MessageSquare } from 'lucide-react';
+import MarkdownRenderer from '@/components/MarkdownRenderer';
 
 interface ChatInterfaceProps {
   billId: string | null;
@@ -195,12 +196,14 @@ export default function ChatInterface({
               {/* Display chat response or empty space for streaming responses */}
               {(chat.response || chat.id === streamingMessages[streamingMessages.length - 1]?.id) && (
                 <div className="flex justify-start">
-                  <div className="bg-muted/30 rounded-lg py-2 px-4 max-w-[80%] text-foreground">
-                    <p className="whitespace-pre-wrap">
-                      {chat.id === streamingMessages[streamingMessages.length - 1]?.id 
-                        ? currentStreamedResponse
-                        : chat.response}
-                    </p>
+                  <div className="bg-muted/30 rounded-lg py-3 px-4 max-w-[85%] text-foreground">
+                    {chat.id === streamingMessages[streamingMessages.length - 1]?.id ? (
+                      <div className="whitespace-pre-wrap">
+                        {currentStreamedResponse}
+                      </div>
+                    ) : (
+                      <MarkdownRenderer content={chat.response} />
+                    )}
                   </div>
                 </div>
               )}
