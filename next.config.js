@@ -6,6 +6,23 @@ const nextConfig = {
   },
   eslint: {
     ignoreDuringBuilds: true
+  },
+  async headers() {
+    return [
+      {
+        source: '/pdfs/:path*',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/pdf'
+          },
+          {
+            key: 'Content-Disposition',
+            value: 'inline'
+          }
+        ]
+      }
+    ];
   }
 };
 
