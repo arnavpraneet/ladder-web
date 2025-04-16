@@ -7,7 +7,7 @@ import { SendHorizontal, MessageSquare } from 'lucide-react';
 interface ChatInterfaceProps {
   billId: string | null;
   chatHistory: ChatMessage[];
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, response?: string) => void;
   isLoading: boolean;
 }
 
@@ -15,26 +15,139 @@ export default function ChatInterface({
   billId,
   chatHistory,
   onSendMessage,
-  isLoading,
+  isLoading: globalIsLoading,
 }: ChatInterfaceProps) {
   const [message, setMessage] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [currentStreamedResponse, setCurrentStreamedResponse] = useState('');
+  const [streamingMessages, setStreamingMessages] = useState<ChatMessage[]>([]);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom whenever chat history changes
+  // Scroll to bottom whenever chat history or streaming messages changes
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [chatHistory]);
+  }, [chatHistory, streamingMessages, currentStreamedResponse]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (message.trim() && billId) {
-      onSendMessage(message);
-      setMessage('');
+    if (!message.trim() || !billId || isStreaming || globalIsLoading) return;
+
+    const userMessage = message;
+    setMessage('');
+    
+    // Add user message to streaming messages
+    const newUserMessage: ChatMessage = {
+      id: `stream-${Date.now()}`,
+      message: userMessage,
+      response: '',
+      createdAt: new Date(),
+    };
+    
+    setStreamingMessages([...streamingMessages, newUserMessage]);
+    setIsStreaming(true);
+    setCurrentStreamedResponse('');
+    
+    try {
+      // Call the streaming API
+      const response = await fetch('/api/chat/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: userMessage,
+          billId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message to streaming API');
+      }
+
+      // Handle the streaming response
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('Failed to get reader from response');
+      }
+
+      let accumulatedResponse = '';
+      
+      // Process the stream
+      const processStream = async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            
+            if (done) {
+              // Streaming is complete
+              break;
+            }
+            
+            // Decode the chunk and process each line
+            const chunk = new TextDecoder().decode(value);
+            const lines = chunk.split('\n\n').filter(line => line.trim() !== '');
+            
+            for (const line of lines) {
+              if (line.startsWith('data:')) {
+                const dataContent = line.slice(5).trim();
+                
+                if (dataContent === '[DONE]') {
+                  // End of stream
+                  break;
+                }
+                
+                try {
+                  const parsedData = JSON.parse(dataContent);
+                  
+                  if (parsedData.content) {
+                    accumulatedResponse += parsedData.content;
+                    setCurrentStreamedResponse(accumulatedResponse);
+                  }
+                } catch (e) {
+                  console.error('Error parsing SSE data:', e);
+                }
+              }
+            }
+          }
+        } finally {
+          reader.releaseLock();
+          
+          // Only pass the response to the parent if we got a valid response
+          if (accumulatedResponse) {
+            // Set streaming to false before calling onSendMessage to prevent any race conditions
+            setIsStreaming(false);
+            // Pass both message and accumulated response
+            onSendMessage(userMessage, accumulatedResponse);
+            // Clear streaming messages to prevent duplication
+            setStreamingMessages([]);
+          } else {
+            setIsStreaming(false);
+            // Use a fallback response if streaming didn't produce any content
+            // But we create and display it here instead of using the simulated response
+            const fallbackResponse = "Sorry, I couldn't generate a response. Please try again.";
+            setCurrentStreamedResponse(fallbackResponse);
+            onSendMessage(userMessage, fallbackResponse);
+            setStreamingMessages([]);
+          }
+        }
+      };
+      
+      processStream();
+    } catch (error) {
+      console.error('Error in streaming chat:', error);
+      // Create a friendly error message
+      const errorResponse = "Sorry, I encountered an error while processing your request. Please try again.";
+      setCurrentStreamedResponse(errorResponse);
+      setIsStreaming(false);
+      // Pass both the message and error response instead of falling back to the API
+      onSendMessage(userMessage, errorResponse);
+      setStreamingMessages([]);
     }
   };
 
+  // Show empty state if no bill is selected
   if (!billId) {
     return (
       <div className="h-full flex items-center justify-center bg-muted/20">
@@ -45,6 +158,12 @@ export default function ChatInterface({
       </div>
     );
   }
+
+  // Combine regular chat history with streaming messages for display
+  const displayMessages = [
+    ...chatHistory,
+    ...streamingMessages.filter(msg => !chatHistory.some(ch => ch.message === msg.message)),
+  ];
 
   return (
     <div className="flex flex-col h-full">
@@ -57,7 +176,7 @@ export default function ChatInterface({
         ref={chatContainerRef}
         className="flex-1 overflow-y-auto p-4 space-y-4 bg-white custom-scrollbar"
       >
-        {chatHistory.length === 0 ? (
+        {displayMessages.length === 0 ? (
           <div className="text-center text-muted-foreground py-8">
             <MessageSquare size={24} strokeWidth={1.5} className="mx-auto mb-2" />
             <p>Ask questions about this bill to get started</p>
@@ -66,23 +185,32 @@ export default function ChatInterface({
             </p>
           </div>
         ) : (
-          chatHistory.map((chat) => (
+          displayMessages.map((chat) => (
             <div key={chat.id} className="space-y-3">
               <div className="flex justify-end">
                 <div className="bg-primary text-primary-foreground rounded-lg py-2 px-4 max-w-[80%]">
                   <p>{chat.message}</p>
                 </div>
               </div>
-              <div className="flex justify-start">
-                <div className="bg-muted/30 rounded-lg py-2 px-4 max-w-[80%] text-foreground">
-                  <p className="whitespace-pre-wrap">{chat.response}</p>
+              
+              {/* Display chat response or empty space for streaming responses */}
+              {(chat.response || chat.id === streamingMessages[streamingMessages.length - 1]?.id) && (
+                <div className="flex justify-start">
+                  <div className="bg-muted/30 rounded-lg py-2 px-4 max-w-[80%] text-foreground">
+                    <p className="whitespace-pre-wrap">
+                      {chat.id === streamingMessages[streamingMessages.length - 1]?.id 
+                        ? currentStreamedResponse
+                        : chat.response}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           ))
         )}
         
-        {isLoading && (
+        {/* Loading indicator for non-streaming requests */}
+        {(globalIsLoading && !isStreaming) && (
           <div className="flex justify-start">
             <div className="bg-muted/30 rounded-lg py-2 px-4">
               <div className="flex space-x-1">
@@ -105,11 +233,11 @@ export default function ChatInterface({
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Ask a question about this bill..."
             className="flex-1 px-3 py-2 border rounded-l-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            disabled={isLoading}
+            disabled={isStreaming || globalIsLoading}
           />
           <Button
             type="submit"
-            disabled={!message.trim() || isLoading}
+            disabled={!message.trim() || isStreaming || globalIsLoading}
             className="rounded-l-none"
           >
             <SendHorizontal size={16} className="mr-1" />

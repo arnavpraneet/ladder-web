@@ -41,11 +41,44 @@ export default function BillDetail({ params }: { params: { id: string } }) {
     }
   }, [params.id]);
 
-  // Send message to chat API
-  const sendMessage = async (message: string) => {
+  // Send message to chat API (non-streaming fallback)
+  const sendMessage = async (message: string, streamedResponse?: string) => {
     setIsLoading(true);
     
     try {
+      // If we have a streamed response, save it to the database
+      if (streamedResponse) {
+        // Save the streamed response to the database
+        const saveResponse = await fetch('/api/chat/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            billId: params.id,
+            message,
+            response: streamedResponse
+          }),
+        });
+        
+        if (!saveResponse.ok) {
+          console.error('Failed to save streamed response');
+        }
+        
+        // Add new message with the streamed response to chat history
+        setChatHistory((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            message,
+            response: streamedResponse,
+            createdAt: new Date(),
+          },
+        ]);
+        return;
+      }
+      
+      // Otherwise, fetch response from the API (non-streaming fallback)
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
