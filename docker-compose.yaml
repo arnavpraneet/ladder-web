@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: ladder_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespw
+      POSTGRES_DB: ladderweb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ladder_app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgrespw@db:5432/ladderweb?schema=public
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: 1
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./public:/app/public
+      - ./prisma:/app/prisma
+
+volumes:
+  postgres_data: 
