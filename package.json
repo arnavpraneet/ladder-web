@@ -10,6 +10,9 @@
     "lint": "next lint",
     "prisma:seed": "node prisma/seed.js"
   },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
   "dependencies": {
     "@prisma/client": "^6.6.0",
     "@radix-ui/react-separator": "^1.1.3",
