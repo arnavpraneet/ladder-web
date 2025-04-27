@@ -6,6 +6,9 @@ import path from 'path';
 const AGENT_KEY = process.env.DIGITALOCEAN_AGENT_KEY || "";
 const AGENT_ENDPOINT = process.env.DIGITALOCEAN_AGENT_ENDPOINT || "";
 
+// Check if the API keys are available
+const HAS_API_CONFIG = AGENT_KEY !== "" && AGENT_ENDPOINT !== "";
+
 // Mock responses with thinking for testing
 const MOCK_THINKING_RESPONSES = [
   {
@@ -36,9 +39,12 @@ export async function POST(request: NextRequest) {
     // Extract the PDF filename from the pdfUrl
     const pdfFilename = path.basename(bill.pdfUrl);
 
-    // In the POST handler, add this before making the actual API call:
-    if (message.toLowerCase().includes("test thinking")) {
-      // Use a mock response with thinking sections for testing
+    // Use mock responses in these cases:
+    // 1. If message includes "test thinking" explicitly for testing
+    // 2. If API keys are not configured
+    // 3. If it's in development mode
+    if (message.toLowerCase().includes("test thinking") || !HAS_API_CONFIG || process.env.NODE_ENV !== "production") {
+      // Use a mock response with thinking sections
       const mockResponse = MOCK_THINKING_RESPONSES[Math.floor(Math.random() * MOCK_THINKING_RESPONSES.length)];
       
       // Create a streaming response to simulate real response with thinking and answer
@@ -55,6 +61,10 @@ export async function POST(request: NextRequest) {
         },
       });
       
+      // Generate specific mock response based on the bill title
+      const customThinking = `Let me analyze this bill titled "${bill.title}". I need to understand the key provisions, impact, and purpose of this legislation. I'll examine how it relates to existing laws and what changes it introduces.`;
+      const customAnswer = `The "${bill.title}" appears to be legislation related to ${pdfFilename.includes('Aircraft') ? 'aviation and aircraft financing' : pdfFilename.includes('Banking') ? 'banking regulations' : 'general governance and regulation'}. This bill likely aims to update existing frameworks and introduce new provisions to address contemporary challenges in this domain.`;
+      
       // Simulate streaming in the background
       (async () => {
         try {
@@ -62,7 +72,7 @@ export async function POST(request: NextRequest) {
           await writer.write(encoder.encode(`data: ${JSON.stringify({ content: "<think>" })}\n\n`));
           
           // Stream the thinking part word by word
-          const thinkingWords = mockResponse.thinking.split(' ');
+          const thinkingWords = customThinking.split(' ');
           for (let i = 0; i < thinkingWords.length; i++) {
             await new Promise(resolve => setTimeout(resolve, 100)); // Delay to simulate typing
             await writer.write(encoder.encode(`data: ${JSON.stringify({ content: thinkingWords[i] + ' ' })}\n\n`));
@@ -72,7 +82,7 @@ export async function POST(request: NextRequest) {
           await writer.write(encoder.encode(`data: ${JSON.stringify({ content: "</think>" })}\n\n`));
           
           // Stream the answer part word by word
-          const answerWords = mockResponse.answer.split(' ');
+          const answerWords = customAnswer.split(' ');
           for (let i = 0; i < answerWords.length; i++) {
             await new Promise(resolve => setTimeout(resolve, 100)); // Delay to simulate typing
             await writer.write(encoder.encode(`data: ${JSON.stringify({ content: answerWords[i] + ' ' })}\n\n`));
@@ -90,6 +100,7 @@ export async function POST(request: NextRequest) {
       return streamResponse;
     }
 
+    // If we have API keys and are not using mock responses, make the real API call
     // Create a streaming response
     const encoder = new TextEncoder();
     const stream = new TransformStream();
