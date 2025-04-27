@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { SendHorizontal, MessageSquare } from 'lucide-react';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
+import ThinkingRenderer from '@/components/ThinkingRenderer';
 
 interface ChatInterfaceProps {
   billId: string | null;
@@ -103,7 +104,15 @@ export default function ChatInterface({
                   const parsedData = JSON.parse(dataContent);
                   
                   if (parsedData.content) {
-                    accumulatedResponse += parsedData.content;
+                    // Clean up any extraneous <think> tags if necessary
+                    let content = parsedData.content;
+                    
+                    // If we see a new <think> tag but already have content, prepend the tag
+                    if (content.includes('<think>') && accumulatedResponse.length > 0 && !accumulatedResponse.includes('<think>')) {
+                      accumulatedResponse = '<think>' + accumulatedResponse;
+                    }
+                    
+                    accumulatedResponse += content;
                     setCurrentStreamedResponse(accumulatedResponse);
                   }
                 } catch (e) {
@@ -117,6 +126,11 @@ export default function ChatInterface({
           
           // Only pass the response to the parent if we got a valid response
           if (accumulatedResponse) {
+            // If the response doesn't have a </think> tag but has a <think> tag, add the closing tag
+            if (accumulatedResponse.includes('<think>') && !accumulatedResponse.includes('</think>')) {
+              accumulatedResponse += '</think>';
+            }
+            
             // Set streaming to false before calling onSendMessage to prevent any race conditions
             setIsStreaming(false);
             // Pass both message and accumulated response to parent for in-memory storage
@@ -198,11 +212,9 @@ export default function ChatInterface({
                 <div className="flex justify-start">
                   <div className="bg-muted/30 rounded-lg py-3 px-4 max-w-[85%] text-foreground">
                     {chat.id === streamingMessages[streamingMessages.length - 1]?.id ? (
-                      <div className="whitespace-pre-wrap">
-                        {currentStreamedResponse}
-                      </div>
+                      <ThinkingRenderer content={currentStreamedResponse} isStreaming={true} />
                     ) : (
-                      <MarkdownRenderer content={chat.response} />
+                      <ThinkingRenderer content={chat.response} />
                     )}
                   </div>
                 </div>
