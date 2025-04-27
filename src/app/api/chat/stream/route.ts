@@ -6,6 +6,18 @@ import path from 'path';
 const AGENT_KEY = process.env.DIGITALOCEAN_AGENT_KEY || "";
 const AGENT_ENDPOINT = process.env.DIGITALOCEAN_AGENT_ENDPOINT || "";
 
+// Mock responses with thinking for testing
+const MOCK_THINKING_RESPONSES = [
+  {
+    thinking: "Let me analyze the bill to understand its key provisions and purpose. This bill appears to be related to aircraft objects and their protection. I should look for information about what specific interests are being protected, who are the stakeholders, and what mechanisms are proposed for protection.",
+    answer: "The Protection of Interests in Aircraft Objects Bill, 2025 aims to safeguard financial interests in aircraft equipment by implementing international standards for security, repossession, and default remedies. It establishes a clear legal framework for aircraft financing and leasing transactions, which can help reduce costs and improve access to aircraft equipment."
+  },
+  {
+    thinking: "I need to consider what this bill is trying to achieve. Based on the title and content, it seems to be addressing legal protections for interests related to aircraft objects. This could include financial interests, ownership rights, or security interests. I should also consider international agreements that might be relevant, such as the Cape Town Convention.",
+    answer: "This bill creates a legal framework to protect financial interests in aircraft assets. It appears to be implementing standards from the Cape Town Convention, which is an international treaty that standardizes transactions involving mobile equipment. The bill would help aircraft financiers and lessors have more certainty in their ability to repossess aircraft in the event of default, which could lower financing costs for airlines operating in the jurisdiction."
+  }
+];
+
 export async function POST(request: NextRequest) {
   // Get the request body
   const body = await request.json();
@@ -23,6 +35,60 @@ export async function POST(request: NextRequest) {
 
     // Extract the PDF filename from the pdfUrl
     const pdfFilename = path.basename(bill.pdfUrl);
+
+    // In the POST handler, add this before making the actual API call:
+    if (message.toLowerCase().includes("test thinking")) {
+      // Use a mock response with thinking sections for testing
+      const mockResponse = MOCK_THINKING_RESPONSES[Math.floor(Math.random() * MOCK_THINKING_RESPONSES.length)];
+      
+      // Create a streaming response to simulate real response with thinking and answer
+      const encoder = new TextEncoder();
+      const stream = new TransformStream();
+      const writer = stream.writable.getWriter();
+      
+      // Start the streaming response
+      const streamResponse = new Response(stream.readable, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+      
+      // Simulate streaming in the background
+      (async () => {
+        try {
+          // First send the thinking part
+          await writer.write(encoder.encode(`data: ${JSON.stringify({ content: "<think>" })}\n\n`));
+          
+          // Stream the thinking part word by word
+          const thinkingWords = mockResponse.thinking.split(' ');
+          for (let i = 0; i < thinkingWords.length; i++) {
+            await new Promise(resolve => setTimeout(resolve, 100)); // Delay to simulate typing
+            await writer.write(encoder.encode(`data: ${JSON.stringify({ content: thinkingWords[i] + ' ' })}\n\n`));
+          }
+          
+          // Add the thinking end tag
+          await writer.write(encoder.encode(`data: ${JSON.stringify({ content: "</think>" })}\n\n`));
+          
+          // Stream the answer part word by word
+          const answerWords = mockResponse.answer.split(' ');
+          for (let i = 0; i < answerWords.length; i++) {
+            await new Promise(resolve => setTimeout(resolve, 100)); // Delay to simulate typing
+            await writer.write(encoder.encode(`data: ${JSON.stringify({ content: answerWords[i] + ' ' })}\n\n`));
+          }
+          
+          // Signal end of stream
+          await writer.write(encoder.encode(`data: [DONE]\n\n`));
+        } catch (error) {
+          console.error('Error in mock streaming:', error);
+        } finally {
+          await writer.close();
+        }
+      })();
+      
+      return streamResponse;
+    }
 
     // Create a streaming response
     const encoder = new TextEncoder();
